@@ -4,4 +4,4 @@
 
 
 # Installation instructions
- ### TODO
+ ### This project is under active development, and will soon be available on PyPi. If you can't wait, you can clone this repo and copy `src/vast_ai.py` to your local directory and start playing around with the class
