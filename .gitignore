@@ -1,0 +1,12 @@
+
+# Python-related directories
+__pycache__/
+.venv/
+venv/
+
+# IDE-related directories
+.vscode/
+.idea/
+
+# Misc
+out/ 
