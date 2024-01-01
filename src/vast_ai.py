@@ -109,7 +109,8 @@ class VastAPIHelper:
     def get_instance_logs(self, instance_id: str, tail: int = 1000) -> str:
         res = requests.put(f"{self.BASE_URL}/instances/request_logs/{instance_id}/", {"tail": tail})
         res.raise_for_status()
-        api_key_id_h = hashlib.md5( (self.API_KEY + str(instance_id)).encode('utf-8') ).hexdigest()
+        private_key = (self.API_KEY + str(instance_id)).encode('utf-8')
+        api_key_id_h = hashlib.md5(private_key).hexdigest()
         s3_url = f"https://s3.amazonaws.com/vast.ai/instance_logs/{api_key_id_h}.log"
         for _ in range(30):
             r = requests.get(s3_url)
