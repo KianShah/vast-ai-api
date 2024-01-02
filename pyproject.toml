@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "vast-ai-api"
+version = "0.1.0"
+description = "A Vast.ai API helper"
+authors = ["Kian <kianshah376@gmail.com>"]
+license = "MIT License"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "~3.10"
+pandas = "^2.1.4"
+requests = "^2.31.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
