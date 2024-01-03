@@ -1,13 +1,20 @@
 import hashlib
 import json
 import time
-from typing import Dict, Literal
+from typing import Dict, Literal, Tuple
 import pandas as pd
 import requests
 from datetime import date
 import os
 from collections import defaultdict
 from urllib import parse
+import paramiko
+import logging
+
+from src.vast_ai_api.util import forward_tunnel
+
+logging.basicConfig()
+logger = logging.getLogger('vast')
 
 # https://vast.ai/
 class VastAPIHelper:
@@ -82,7 +89,7 @@ class VastAPIHelper:
         res = requests.get(f"{self.BASE_URL}/bundles?{query_str}")
         res.raise_for_status()
         df = pd.DataFrame.from_records(res.json()['offers'])
-        print(f"Recieved {len(df)} results")
+        logger.debug(f"Recieved {len(df)} results")
         return df
 
     def list_current_instances(self) -> pd.DataFrame:
@@ -125,7 +132,7 @@ class VastAPIHelper:
             "disk": disk_size,
             "label": label,
             "runtype": "jupyter_direc ssh_direc ssh_proxy" if use_jupyter_lab else "ssh_direc ssh_proxy",
-            "use_jupyter_lab": False,
+            "use_jupyter_lab": use_jupyter_lab,
         }
         res = requests.put(f"{self.BASE_URL}/asks/{instance_id}/", 
                            headers={"Authorization": f"Bearer {self.API_KEY}"}, 
@@ -137,8 +144,9 @@ class VastAPIHelper:
         res = requests.put(f"{self.BASE_URL}/instances/bid_price/{instance_id}/", {"client_id": "me", "price": price})
         res.raise_for_status()
         
-    def get_instance(self, instance_id: str) -> pd.DataFrame:
-        raise NotImplementedError("Not possible to get instance because the instance ID actually changes after creating the instance. Weird I know.")
+    def get_instance(self, instance_id: str) -> pd.Series:
+        df = self.list_current_instances()
+        return df[df['id'] == instance_id].squeeze()
 
     # SSH key required
     def start_instance(self, instance_id: str) -> pd.DataFrame:
@@ -162,6 +170,28 @@ class VastAPIHelper:
         self._set_instance_state(instance_id, 'PUT', 'stopped')
         self._set_instance_state(instance_id, 'DELETE')
         
+    # SSH key required
+    def connect_ssh(self, instance_id: str, use_vast_proxy: bool = True, port_forwarding: Tuple[int, int] = None) -> paramiko.SSHClient:
+        instance = self.get_instance(instance_id)
+        if use_vast_proxy:
+            ssh_host = instance['ssh_host']
+            ssh_port = int(instance['ssh_port'])
+        else:
+            ssh_host = instance['public_ipaddr']
+            ssh_port = int(instance['direct_port_start'])
+
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(ssh_host, port=ssh_port, username='root')
+        if not client.get_transport().is_active():
+            raise Exception("Could not connect to the SSH server using any key from SSH agent; make sure you've added it using `ssh-add <PATH_TO_PRIVATE_KEYFILE>")
+        
+        if port_forwarding is not None:
+            local_port, remote_port = port_forwarding
+            forward_tunnel(local_port, 'localhost', remote_port, client.get_transport())
+        return client
+        
+        
     def get_instance_logs(self, instance_id: str, tail: int = 1000) -> str:
         res = requests.put(f"{self.BASE_URL}/instances/request_logs/{instance_id}/", {"tail": tail})
         res.raise_for_status()
@@ -172,7 +202,7 @@ class VastAPIHelper:
             r = requests.get(s3_url)
             if (r.status_code == 200):
                 return r.text
-            print(f"Waiting on logs for instance {instance_id} fetching from {s3_url}")
+            logger.debug(f"Waiting on logs for instance {instance_id} fetching from {s3_url}")
             time.sleep(0.5)
 
     """
