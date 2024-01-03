@@ -4,7 +4,7 @@ import time
 
 import pandas as pd
 
-from src.vast_ai import VastAPIHelper
+from src.vast_ai_api.vast_ai import VastAPIHelper
 
 class TestVastAPIHelper(unittest.TestCase):
 
