@@ -89,5 +89,5 @@ ssh_port = newly_launched_instance['ssh_port']
 ```
 and then use `ssh` to connect your terminal to the instance:
 ```bash
-$ ssh -p ${ssh_port} ${ssh_host} -L 8080:localhost:8080
+$ ssh -p ${ssh_port} root@${ssh_host} -L 8080:localhost:8080
 ```
