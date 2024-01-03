@@ -1,4 +1,3 @@
-import hashlib
 import json
 import time
 from typing import Dict, Literal, Tuple
@@ -193,12 +192,12 @@ class VastAPIHelper:
         
         
     def get_instance_logs(self, instance_id: str, tail: int = 1000) -> str:
-        res = requests.put(f"{self.BASE_URL}/instances/request_logs/{instance_id}/", {"tail": tail})
+        res = requests.put(f"{self.BASE_URL}/instances/request_logs/{instance_id}/",
+                           params={"api_key": self.API_KEY},
+                           json={"tail": tail})
         res.raise_for_status()
-        private_key = (self.API_KEY + str(instance_id)).encode('utf-8')
-        api_key_id_h = hashlib.md5(private_key).hexdigest()
-        s3_url = f"https://s3.amazonaws.com/vast.ai/instance_logs/{api_key_id_h}.log"
-        for _ in range(30):
+        s3_url = res.json()['result_url']
+        for _ in range(10):
             r = requests.get(s3_url)
             if (r.status_code == 200):
                 return r.text
@@ -215,7 +214,7 @@ class VastAPIHelper:
         return res
     
     def list_machine_for_rent(self, price_per_gpu: float, storage_price: float, price_inet_up: float, price_inet_down: float, min_gpus: int, end_date: date, discount_rate: float = 0.4):
-        ...  # TODO
+        raise NotImplementedError()
         
     def unlist_machine_for_rent(self, instance_id: str) -> None:
         res = requests.delete(f"{self.BASE_URL}/machines/{instance_id}/asks/")

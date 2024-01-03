@@ -40,6 +40,7 @@ class TestVastAPIHelper(unittest.TestCase):
     def test_instance_logs(self):
         logs = self.api_helper.get_instance_logs(self.test_instance['id'])
         self.assertIsNotNone(logs)
+        self.assertTrue(len(logs) > 0)
     
     def test_instance_stop_start(self):
         self.api_helper.stop_instance(self.test_instance['id'])
@@ -53,12 +54,14 @@ class TestVastAPIHelper(unittest.TestCase):
     
     def test_ssh_connect(self):
         client = self.api_helper.connect_ssh(self.test_instance['id'])
-        stdin, stdout, stderr = client.exec_command('ls -a')
-        output = stdout.readlines()
-        error = stderr.readlines()
-        self.assertTrue(len(output) > 0)
-        self.assertTrue(len(error) == 0)
-        client.close()
+        try:
+            stdin, stdout, stderr = client.exec_command('ls -a')
+            output = stdout.readlines()
+            error = stderr.readlines()
+            self.assertTrue(len(output) > 0)
+            self.assertTrue(len(error) == 0)
+        finally:
+            client.close()
         
 if __name__ == '__main__':
     unittest.main()
