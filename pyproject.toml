@@ -7,6 +7,10 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/KianShah/vast-ai-api"
 
+exclude = [
+    "src/vast_ai_api/main.py"
+]
+
 [tool.poetry.dependencies]
 python = "~3.10"
 pandas = "^2.1.4"
