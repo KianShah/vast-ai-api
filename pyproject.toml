@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "vast_ai_api"
-version = "0.3.2"
+version = "0.3.3"
 description = "A Vast.ai API helper"
 authors = ["Kian <kianshah376@gmail.com>"]
 license = "MIT"

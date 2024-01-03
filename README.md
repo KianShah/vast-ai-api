@@ -1,3 +1,6 @@
+
+<h3 style="font-weight: bold; color: indianred">Note: This project is under active development, but is not yet considered suitable for production environments</p>
+
 # A low-level API for Vast.ai
  
  This project is not intended to replace the open-source [vast.ai library](https://github.com/vast-ai/vast-python) but rather to complement it for those who want to have an easy-to-use API to build their own projects. The goal of this project is not to re-implement every functionality in the original library but to simplify it for future developers and end users.
@@ -72,9 +75,9 @@ Prerequisites: You must have added your private key to your ssh-agent, as parami
 
 In addition, you must have initialized the instance as `api.launch_instance(instance_id, use_jupyter_lab=False)`
 
-You can connect to the instance in 2 ways: with or without port forwarding. Port forwarding is recommended as it allows you to stay anonymous when connecting to the gpu provider:
+You can connect to the instance in 2 ways: with or without a proxy server (provided by Vast.ai). Using a proxy server is recommended as it allows you to stay anonymous when connecting to the gpu provider, but will slightly increase the latency to the machine.
 ```python
-client = api.connect_ssh(new_instance_id)
+client = api.connect_ssh(new_instance_id, use_vast_proxy=True)
 stdin, stdout, stderr = client.exec_command(<your_command_here>)
 print(stdout.readlines())
 ```
@@ -87,7 +90,7 @@ Alternatively, you can connect directly via the command line by reading the nece
 ssh_host = newly_launched_instance['ssh_host']
 ssh_port = newly_launched_instance['ssh_port']
 ```
-and then use `ssh` to connect your terminal to the instance:
+and then use `ssh` and the replace `ssh_host` and `ssh_port` with the values above to connect your terminal to the instance:
 ```bash
 $ ssh -p ${ssh_port} root@${ssh_host} -L 8080:localhost:8080
 ```
