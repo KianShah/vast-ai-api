@@ -1,1 +1,1 @@
-from vast_ai import VastAPIHelper
+from .vast_ai import VastAPIHelper
