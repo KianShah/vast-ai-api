@@ -1,6 +1,7 @@
 import select
 import logging
 import socketserver as SocketServer
+import threading
 
 logger = logging.getLogger('vast')
 
@@ -44,14 +45,22 @@ class Handler(SocketServer.BaseRequestHandler):
 class ForwardServer(SocketServer.ThreadingTCPServer):
     daemon_threads = True
     allow_reuse_address = True
+    
+    def service_actions(self):
+        if self.ssh_client.get_transport() is not None and self.ssh_client.get_transport().is_active():
+            self.shutdown()
 
-def forward_tunnel(local_port, remote_host, remote_port, transport):
+# This creates a server on another thread to listen to the local port and forward to remote
+def forward_tunnel(local_port, remote_host, remote_port, client):
     # this is a little convoluted, but lets me configure things for the Handler
     # object.  (SocketServer doesn't give Handlers any way to access the outer
     # server normally.)
     class SubHander(Handler):
         chain_host = remote_host
         chain_port = remote_port
-        ssh_transport = transport
-
-    ForwardServer(("", local_port), SubHander).serve_forever()
+        ssh_transport = client.get_transport()
+    forwarding_server = ForwardServer(("", local_port), SubHander)
+    forwarding_server.ssh_client = client
+    tunnel_thread = threading.Thread(target=forwarding_server.serve_forever)
+    tunnel_thread.daemon = True
+    tunnel_thread.start()
