@@ -10,7 +10,7 @@ from urllib import parse
 import paramiko
 import logging
 
-from src.vast_ai_api.util import forward_tunnel
+# from src.vast_ai_api.util import forward_tunnel
 
 logging.basicConfig()
 logger = logging.getLogger('vast')
@@ -51,7 +51,7 @@ class VastAPIHelper:
                 op_name = 'gte' if op == 'min' else 'lte'
                 query[available_fields[key]].update({op_name: str(v)})
             elif k == "region":
-                query[available_fields[key]] = {'=', v}
+                query[available_fields[key]] = {'eq': v}
             else:
                 raise ValueError(f"Unknown parameter {k}")
         return query
@@ -68,8 +68,8 @@ class VastAPIHelper:
             The dataframe is sorted by default by price, descending
             For more information, consult the Vast.ai documentation
     """
-    def list_available_instances(self, 
-                                 min_price: float = None, 
+    def list_available_instances(self,
+                                 min_price: float = None,
                                  max_price: float = None,
                                  min_ram: int = None,
                                  max_ram: int = None,
@@ -81,9 +81,7 @@ class VastAPIHelper:
                                  verified: bool = True) -> pd.DataFrame:
         params = dict(list(locals().items())[-10:]) # Update whenever adding parameters. Creates a dictionary from all the parameters
         query = {"q": self._build_query(params)}
-        
         query_str = "&".join([f"{k}={parse.quote_plus(str(v) if isinstance(v, str) else json.dumps(v))}" for k, v in query.items()])
-
 
         res = requests.get(f"{self.BASE_URL}/bundles?{query_str}")
         res.raise_for_status()
@@ -147,15 +145,15 @@ class VastAPIHelper:
         df = self.list_current_instances()
         return df[df['id'] == instance_id].squeeze()
 
-    # SSH key required
+    """
+        SSH Keys required for methods below
+    """
     def start_instance(self, instance_id: str) -> pd.DataFrame:
         self._set_instance_state(instance_id, 'PUT', 'running')
 
-    # SSH key required
     def stop_instance(self, instance_id: str) -> None:
         self._set_instance_state(instance_id, 'PUT', 'stopped')
     
-    # SSH key required     
     def reboot_instance(self, instance_id: str) -> None:
         self.stop_instance(instance_id)
         self.start_instance(instance_id)
@@ -164,12 +162,10 @@ class VastAPIHelper:
         res = requests.put(f"{self.BASE_URL}/instances/{instance_id}/", {"label": label})
         res.raise_for_status()
     
-    # SSH key required
     def delete_instance(self, instance_id: str) -> None:
         self._set_instance_state(instance_id, 'PUT', 'stopped')
         self._set_instance_state(instance_id, 'DELETE')
         
-    # SSH key required
     def connect_ssh(self, instance_id: str, use_vast_proxy: bool = True, port_forwarding: Tuple[int, int] = None) -> paramiko.SSHClient:
         instance = self.get_instance(instance_id)
         if use_vast_proxy:
@@ -186,15 +182,47 @@ class VastAPIHelper:
             raise Exception("Could not connect to the SSH server using any key from SSH agent; make sure you've added it using `ssh-add <PATH_TO_PRIVATE_KEYFILE>")
         
         if port_forwarding is not None:
-            local_port, remote_port = port_forwarding
-            forward_tunnel(local_port, 'localhost', remote_port, client.get_transport())
+            raise NotImplementedError("Port forwarding blocks the main thread and I don't know how to fix it. For now, it is disabled")
+            # local_port, remote_port = port_forwarding
+            # forward_tunnel(local_port, 'localhost', remote_port, client)
         return client
+    
+    def copy(self, src: str, dst: str, client: paramiko.SSHClient = None) -> None:
+        src_host, src_port, src_path = src.split(':')
+        dst_host, dst_port, dst_path = dst.split(':')
         
+        if src_host != 'localhost' and dst_host != 'localhost':
+            raise NotImplementedError("Copying between remote machines is currently unsupported. Either src or dst needs to be localhost")
+
+        if client is None:
+            remote_host, remote_port = src_host, src_port if dst_host == 'localhost' else dst_host, dst_port
+            transport = paramiko.Transport((remote_host, remote_port))
+            transport.connect(None, 'root')
+        else:
+            transport = client.get_transport()
+        sftp = paramiko.SFTPClient.from_transport(transport)
+        if src_host == 'localhost':
+            sftp.put(src_path, dst_path)
+        else:
+            sftp.get(dst_path, src_path)
+        
+    def upload(self, src_path: str, dst_path: str, client: paramiko.SSHClient) -> None:
+        sftp = paramiko.SFTPClient.from_transport(client.get_transport())
+        sftp.put(src_path, dst_path)
+        
+    def upload(self, src_path: str, dst_host: str, dst_port: int, dst_path: str) -> None:
+        return self.copy(f"localhost:22:{src_path}", f"{dst_host}:{str(dst_port)}:{dst_path}")
+    
+    def download(self, src_path: str, dst_path: str, client: paramiko.SSHClient) -> None:
+        sftp = paramiko.SFTPClient.from_transport(client.get_transport())
+        sftp.get(dst_path, src_path)
+        
+    def download(self, src_host: str, src_port: int, src_path: str, dst_path: str) -> None:
+        return self.copy(f"localhost:22:{dst_path}", f"{src_host}:{str(src_port)}:{src_path}")
         
     def get_instance_logs(self, instance_id: str, tail: int = 1000) -> str:
         res = requests.put(f"{self.BASE_URL}/instances/request_logs/{instance_id}/",
-                           params={"api_key": self.API_KEY},
-                           json={"tail": tail})
+                           params={"api_key": self.API_KEY}, json={"tail": tail})
         res.raise_for_status()
         s3_url = res.json()['result_url']
         for _ in range(10):
@@ -207,16 +235,20 @@ class VastAPIHelper:
     """
         Host actions
     """
-        
     def show_hosted_machines(self) -> None:
-        res = requests.get(f"{self.BASE_URL}/machines", {'owner': 'me'})
-        res.raise_for_status()
-        return res
+        # res = requests.get(f"{self.BASE_URL}/machines", 
+        #                    params={'api_key': self.API_KEY}, 
+        #                    headers={"Authorization": f"Bearer {self.API_KEY}"}, 
+        #                    son={'owner': 'me'})
+        # res.raise_for_status()
+        # return res
+        raise NotImplementedError()
     
-    def list_machine_for_rent(self, price_per_gpu: float, storage_price: float, price_inet_up: float, price_inet_down: float, min_gpus: int, end_date: date, discount_rate: float = 0.4):
+    def list_machine_for_rent(self, price_per_gpu: float, storage_price: float, price_inet_up: float, price_inet_down: float, min_gpus: int, end_date: date, discount_rate: float = 0.4) -> None:
         raise NotImplementedError()
         
     def unlist_machine_for_rent(self, instance_id: str) -> None:
-        res = requests.delete(f"{self.BASE_URL}/machines/{instance_id}/asks/")
-        res.raise_for_status()
+        # res = requests.delete(f"{self.BASE_URL}/machines/{instance_id}/asks/", params={'api_key': self.API_KEY})
+        # res.raise_for_status()
+        raise NotImplementedError()
         
