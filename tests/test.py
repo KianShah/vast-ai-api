@@ -1,4 +1,3 @@
-import subprocess
 from random import randint
 import unittest
 import time
