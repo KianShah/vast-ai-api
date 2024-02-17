@@ -1,6 +1,3 @@
-
-<h3 style="font-weight: bold; color: indianred">Note: This project is under active development, but is not yet considered suitable for production environments</p>
-
 # A low-level API for Vast.ai
  
  This project is not intended to replace the open-source [vast.ai library](https://github.com/vast-ai/vast-python) but rather to complement it for those who want to have an easy-to-use API to build their own projects. The goal of this project is not to re-implement every functionality in the original library but to simplify it for future developers and end users.
@@ -25,6 +22,10 @@ Export your [Vast-AI API key](https://vast.ai/docs/account/account-settings?quer
 $ export VAST_AI_API_KEY=<YOUR_API_KEY_HERE>
 ```
 After you reserve an instance, in order to change its state or interact with it in any way, you will need to setup an [SSH key](https://vast.ai/docs/account/account-settings?query=change-ssh-key#change-ssh-key) on Vast.ai. Then, add your private key to your ssh agent (see [here](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent)).
+
+## Contributing
+
+Currently, the API covers most of the functionality provided by the original Vast AI library, except for host actions (hosting machines, listing hosted machines, etc.). You can contribute by forking this repo, adding your changes and making a pull request.
 
 ## Usage
 Initializing the API Helper:
@@ -116,3 +117,6 @@ get passwds passwds
 chmod 775 ./script.sh
 ...
 ```
+
+## Deployment instructions
+This repo is deployed to [pypi](https://pypi.org/) using poetry. Simply run `poetry build`, then `poetry publish`
